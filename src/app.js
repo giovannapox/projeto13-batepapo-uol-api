@@ -3,6 +3,7 @@ import cors from "cors";
 import { MongoClient } from "mongodb";
 import dotenv from "dotenv";
 import joi from "joi";
+import dayjs from "dayjs";
 
 // Criando o server
 const app = express();
@@ -24,11 +25,40 @@ const db = mongoClient.db();
 
 // endpoints 
 
-app.post("/participants", (req, res) => {
+app.post("/participants", async (req, res) => {
     const { name } = req.body;
-    // name deve ser string não vazia caso contrario res.sendStatus(422);
-    // nome já usado res.sendStatus(409);
-    res.sendStatus(201);
+
+    const usuarioSchema = joi.object({
+        name: joi.string().required()
+    })
+
+    const validation = usuarioSchema.validate(req.body, { abortEarly: false});
+
+    if(validation.error){
+        const erros = validation.error.details.map(detail => detail.message);
+        return res.status(422).send(erros);
+    }
+
+    try {
+        const participantes = await db.collection("participants").find().toArray();
+        if(participantes.find(participante => participante.name === name)) return res.sendStatus(409);
+        
+        const novoUsuario = { name, lastStatus: Date.now()}
+        await db.collection("participants").insertOne(novoUsuario);
+
+        const mensagem = {
+            from: name,
+            to: 'Todos',
+            text: 'entra na sala...',
+            type: 'status',
+            time: dayjs().format('HH:mm:ss')
+        }
+        await db.collection("messages").insertOne(mensagem);
+        res.sendStatus(201);
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+    
 })
 
 app.get("/participants", (req, res) => {
