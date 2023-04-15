@@ -74,8 +74,8 @@ app.post("/messages", async (req, res) => {
     const from = req.headers.user;
 
     try{
-        const usuario = await db.collection("participants").findOne();
-        if(!usuario) return res.status(404).send("Usuário não encontrado");
+        const usuario = await db.collection("participants").findOne({name: from});
+        if(!usuario) return res.status(422).send("Usuário não cadastrado");
 
         const mensagemSchema = joi.object({
             to: joi.string().required(),
