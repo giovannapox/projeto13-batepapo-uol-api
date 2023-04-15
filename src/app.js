@@ -70,16 +70,48 @@ app.get("/participants", async (req, res) => {
     }
 })
 
-app.post("/messages", (req, res) => {
-    const { to, text, type } = req.body;
+app.post("/messages", async (req, res) => {
+    const from = req.headers.user;
+
+    try{
+        const usuario = await db.collection("participants").findOne();
+        if(!usuario) return res.status(404).send("Usuário não encontrado");
+
+        const mensagemSchema = joi.object({
+            to: joi.string().required(),
+            text: joi.string().required(),
+            type: joi.string().required().valid("private_message", "message"),
+            from: joi.string().required()
+        })
+
+        const mensagem = {...req.body, from };
+        const validation = mensagemSchema.validate(mensagem, { abortEarly: false });
+        if(validation.error){
+            const erros = validation.error.details.map(detail => detail.message);
+            return res.status(422).send(erros);
+        }
+
+        await db.collection("messages").insertOne({...mensagem, time: dayjs().format('HH:mm:ss')});
+        res.sendStatus(201);
+    } catch (err) {
+        res.status(500).send(err.message)
+    }
 })
 
 app.get("/messages", (req, res) => {
+    try{
 
+    } catch (err) {
+        res.status(500).send(err.message)
+    }
 })
 
 app.post("/status", (req, res) => {
+    try{
 
+    } catch (err) {
+        res.status(500).send(err.message)
+    }
 })
 
 // App esperando requisições
