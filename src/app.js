@@ -128,7 +128,7 @@ app.get("/messages", async (req, res) => {
 app.post("/status", async (req, res) => {
     const { user } = req.headers;
 
-    if (!user) return res.sendStatus(404);
+    if (!user) return res.sendStatus(400);
 
     try {
         const participante = await db.collection("participants").findOne({ name: user });
