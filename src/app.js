@@ -15,7 +15,7 @@ dotenv.config();
 
 // Conectando com Banco de Dados
 const mongoClient = new MongoClient(process.env.DATABASE_URL);
-try{
+try {
     await mongoClient.connect();
     console.log("MongoDB conectado");
 } catch (err) {
@@ -32,18 +32,18 @@ app.post("/participants", async (req, res) => {
         name: joi.string().required()
     })
 
-    const validation = usuarioSchema.validate(req.body, { abortEarly: false});
+    const validation = usuarioSchema.validate(req.body, { abortEarly: false });
 
-    if(validation.error){
+    if (validation.error) {
         const erros = validation.error.details.map(detail => detail.message);
         return res.status(422).send(erros);
     }
 
     try {
         const participantes = await db.collection("participants").find().toArray();
-        if(participantes.find(participante => participante.name === name)) return res.sendStatus(409);
-        
-        const novoUsuario = { name, lastStatus: Date.now()}
+        if (participantes.find(participante => participante.name === name)) return res.sendStatus(409);
+
+        const novoUsuario = { name, lastStatus: Date.now() }
         await db.collection("participants").insertOne(novoUsuario);
 
         const mensagem = {
@@ -58,7 +58,7 @@ app.post("/participants", async (req, res) => {
     } catch (err) {
         res.status(500).send(err.message);
     }
-    
+
 })
 
 app.get("/participants", async (req, res) => {
@@ -73,9 +73,9 @@ app.get("/participants", async (req, res) => {
 app.post("/messages", async (req, res) => {
     const from = req.headers.user;
 
-    try{
+    try {
         const usuario = await db.collection("participants").findOne({ name: from });
-        if(!usuario) return res.status(422).send("Usuário não cadastrado");
+        if (!usuario) return res.status(422).send("Usuário não cadastrado");
 
         const mensagemSchema = joi.object({
             to: joi.string().required(),
@@ -84,14 +84,14 @@ app.post("/messages", async (req, res) => {
             from: joi.string().required()
         })
 
-        const mensagem = {...req.body, from };
+        const mensagem = { ...req.body, from };
         const validation = mensagemSchema.validate(mensagem, { abortEarly: false });
-        if(validation.error){
+        if (validation.error) {
             const erros = validation.error.details.map(detail => detail.message);
             return res.status(422).send(erros);
         }
 
-        await db.collection("messages").insertOne({...mensagem, time: dayjs().format('HH:mm:ss')});
+        await db.collection("messages").insertOne({ ...mensagem, time: dayjs().format('HH:mm:ss') });
         res.sendStatus(201);
     } catch (err) {
         res.status(500).send(err.message);
@@ -99,23 +99,23 @@ app.post("/messages", async (req, res) => {
 })
 
 app.get("/messages", async (req, res) => {
-    const usuario  = req.headers.user;
+    const usuario = req.headers.user;
     const limite = req.query.limit;
 
-    try{
+    try {
         const mensagens = await db.collection("messages").find({
             $or: [
-                {from: usuario}, 
-                {to: 'Todos'}, 
-                {to: usuario}
+                { from: usuario },
+                { to: 'Todos' },
+                { to: usuario }
             ]
         }).toArray();
 
-        if(limite <= 0 || isNaN(limite)){
+        if (limite <= 0 || isNaN(limite)) {
             return res.sendStatus(422);
         }
 
-        if(limite){
+        if (limite) {
             return res.status(200).send(mensagens.slice(-Number(limite)));
         } else {
             res.status(200).send(mensagens);
@@ -126,22 +126,42 @@ app.get("/messages", async (req, res) => {
 })
 
 app.post("/status", async (req, res) => {
-    const usuario  = req.headers.user;
+    const usuario = req.headers.user;
 
-    if(!usuario) return res.sendStatus(404);
-        
-    try{
+    if (!usuario) return res.sendStatus(404);
+
+    try {
         const participante = await db.collection("participants").findOne({ usuario });
-        if(participante){
-            await db.collection("participants").updateOne({ usuario }, { $et: { lastStatus: Date.now() }});
+        if (participante) {
+            await db.collection("participants").updateOne({ usuario }, { $et: { lastStatus: Date.now() } });
             res.sendStatus(200);
-        }  else {
+        } else {
             res.sendStatus(404);
-        }    
+        }
     } catch (err) {
-        res.status(500).send(err.message)
+        res.status(500).send(err.message);
     }
 })
+
+setInterval(removerInativos, 15000);
+
+async function removerInativos() {
+    try {
+        const inativos = await db.collection("participants").find({ lastStatus: {$lt: Date.now() - 10000}}).toArray();
+        inativos.forEach((p) => {
+            db.collection("messages").insertOne({
+                from: p.name,
+                to: 'Todos',
+                text: 'sai da sala...',
+                type: 'status',
+                time: dayjs().format('HH:mm:ss')
+            })
+            db.collection("participants").deleteOne( {name: p.name} );
+        })
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+}
 
 // App esperando requisições
 const PORT = 5000;
