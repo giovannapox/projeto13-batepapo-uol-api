@@ -98,11 +98,30 @@ app.post("/messages", async (req, res) => {
     }
 })
 
-app.get("/messages", (req, res) => {
-    try{
+app.get("/messages", async (req, res) => {
+    const usuario  = req.headers.user;
+    const limite = req.query.limit;
 
+    try{
+        const mensagens = await db.collection("messages").find({
+            $or: [
+                {from: usuario}, 
+                {to: 'Todos'}, 
+                {to: usuario}
+            ]
+        }).toArray();
+
+        if(limite <= 0 || isNaN(limite)){
+            return res.sendStatus(422);
+        }
+
+        if(limite){
+            return res.status(200).send(mensagens.slice(-Number(limite)));
+        } else {
+            res.status(200).send(mensagens);
+        }
     } catch (err) {
-        res.status(500).send(err.message)
+        res.status(500).send(err.message);
     }
 })
 
