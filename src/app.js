@@ -74,7 +74,7 @@ app.post("/messages", async (req, res) => {
     const from = req.headers.user;
 
     try{
-        const usuario = await db.collection("participants").findOne({name: from});
+        const usuario = await db.collection("participants").findOne({ name: from });
         if(!usuario) return res.status(422).send("Usuário não cadastrado");
 
         const mensagemSchema = joi.object({
@@ -94,7 +94,7 @@ app.post("/messages", async (req, res) => {
         await db.collection("messages").insertOne({...mensagem, time: dayjs().format('HH:mm:ss')});
         res.sendStatus(201);
     } catch (err) {
-        res.status(500).send(err.message)
+        res.status(500).send(err.message);
     }
 })
 
@@ -125,9 +125,19 @@ app.get("/messages", async (req, res) => {
     }
 })
 
-app.post("/status", (req, res) => {
-    try{
+app.post("/status", async (req, res) => {
+    const usuario  = req.headers.user;
 
+    if(!usuario) return res.sendStatus(404);
+        
+    try{
+        const participante = await db.collection("participants").findOne({ usuario });
+        if(participante){
+            await db.collection("participants").updateOne({ usuario }, { $et: { lastStatus: Date.now() }});
+            res.sendStatus(200);
+        }  else {
+            res.sendStatus(404);
+        }    
     } catch (err) {
         res.status(500).send(err.message)
     }
