@@ -131,9 +131,9 @@ app.post("/status", async (req, res) => {
     if (!usuario) return res.sendStatus(404);
 
     try {
-        const participante = await db.collection("participants").findOne({ usuario });
+        const participante = await db.collection("participants").findOne(usuario);
         if (participante) {
-            await db.collection("participants").updateOne({ usuario }, { $et: { lastStatus: Date.now() } });
+            await db.collection("participants").updateOne(usuario, { $et: { lastStatus: Date.now() } });
             res.sendStatus(200);
         } else {
             res.sendStatus(404);
@@ -147,7 +147,7 @@ setInterval(removerInativos, 15000);
 
 async function removerInativos() {
     try {
-        const inativos = await db.collection("participants").find({ lastStatus: {$lt: Date.now() - 10000}}).toArray();
+        const inativos = await db.collection("participants").find({ lastStatus: { $lt: Date.now() - 10000 } }).toArray();
         inativos.forEach((p) => {
             db.collection("messages").insertOne({
                 from: p.name,
@@ -156,7 +156,7 @@ async function removerInativos() {
                 type: 'status',
                 time: dayjs().format('HH:mm:ss')
             })
-            db.collection("participants").deleteOne( {name: p.name} );
+            db.collection("participants").deleteOne({ name: p.name });
         })
     } catch (err) {
         res.status(500).send(err.message);
